@@ -2,9 +2,9 @@
 
 Update [EmDash](https://emdashcms.com) from the admin with one click. The plugin commits the new versions to your GitHub repository, waits until your hosting has deployed them, and lets you undo the update.
 
-[![Updating an EmDash site from 1.3.1 to 1.4.0 in the admin, then undoing it (sped up)](https://raw.githubusercontent.com/swissky/emdash-updater/main/docs/demo.gif)](https://github.com/swissky/emdash-updater/raw/main/docs/demo.mp4)
+[![Updating an EmDash site from 1.3.1 to 1.4.0 in the admin, then undoing it (sped up)](https://raw.githubusercontent.com/swissky/emdash-updater/main/docs/demo.gif)](https://github.com/swissky/emdash-updater/blob/main/docs/demo.mp4)
 
-[Watch the full video](https://github.com/swissky/emdash-updater/raw/main/docs/demo.mp4)
+[Watch the full video](https://github.com/swissky/emdash-updater/blob/main/docs/demo.mp4)
 
 ![The Updates page showing EmDash 1.3.1 installed and 1.4.0 available](docs/update-available.jpg)
 
