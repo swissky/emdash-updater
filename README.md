@@ -6,7 +6,6 @@ Update [EmDash](https://emdashcms.com) from the admin with one click. The plugin
 
 [Watch the full video](https://github.com/swissky/emdash-updater/blob/main/docs/demo.mp4)
 
-![The Updates page showing EmDash 1.3.1 installed and 1.4.0 available](docs/update-available.jpg)
 
 ## What it does
 
