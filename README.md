@@ -1,0 +1,102 @@
+# EmDash Updater
+
+Update [EmDash](https://emdashcms.com) from the admin with one click. The plugin commits the new versions to your GitHub repository, waits until your hosting has deployed them, and lets you undo the update.
+
+![The Updates page showing EmDash 1.3.1 installed and 1.4.0 available](docs/update-available.jpg)
+
+## What it does
+
+- Shows which EmDash packages are installed and which newer versions are out.
+- **Update now** writes the new versions to `package.json` (and your lockfile) on your live branch. Your hosting builds and deploys as usual; database migrations run on the first request.
+- Offers a database backup download before the update starts.
+- Watches the build your hosting reports to GitHub. If it fails, the plugin shows the failure and puts the previous versions back when you click **Discard**.
+- **Undo update** returns to the versions you had before, in one click.
+- On Cloudflare Workers with D1, every update can first run as a **test version** with a copy of your content. You open it, check it, and only then apply it to the live site.
+
+![The confirmation dialog with the backup download before updating](docs/update-confirm.jpg)
+
+![The Updates page after the update, with the undo button](docs/update-done.jpg)
+
+## Requirements
+
+- EmDash 1.3 or later, Node.js 22.13 or later.
+- The site's code lives in a **GitHub** repository.
+- Your hosting deploys automatically when that repository changes (Cloudflare Workers Builds, Render, Vercel, Netlify, Coolify, a GitHub Actions deploy, and similar).
+
+## Install
+
+```bash
+npm install emdash-updater
+```
+
+Add the integration and the plugin in `astro.config.mjs`:
+
+```js
+import { defineConfig } from "astro/config";
+import emdash from "emdash/astro";
+import updater from "emdash-updater/astro";
+import { updaterPlugin } from "emdash-updater";
+
+export default defineConfig({
+	integrations: [
+		updater(),
+		emdash({
+			// your database, storage, ...
+			plugins: [updaterPlugin()],
+		}),
+	],
+});
+```
+
+Keep `updater()` before `emdash()`. Commit, push, and let your hosting deploy.
+
+### Cloudflare Workers: test versions
+
+Test versions need Cloudflare Workers Builds connected to your GitHub repository, with builds for non-production branches turned on. Point `main` in `wrangler.jsonc` at a worker file that re-exports the plugin's worker:
+
+```ts
+// src/worker.ts
+export { default, PluginBridge } from "emdash-updater/worker";
+```
+
+The plugin turns test versions on when it finds a `wrangler.jsonc`. To update straight to the live site instead, use `updater({ previews: false })`.
+
+## Connect GitHub
+
+1. Open **Admin > Plugins > Updates** and click **Connect GitHub**.
+2. GitHub asks you to create a private GitHub App for your site. The app belongs to your account, not to anyone else. Its key is stored encrypted in the plugin settings.
+3. Install the app on the repository your site is built from, then pick that repository in the admin.
+
+The app asks for these permissions:
+
+| Permission | Why |
+| --- | --- |
+| Contents: read and write | Commit the new versions and undo them |
+| Workflows: read and write | Add the workflow that updates your lockfile |
+| Checks, commit statuses, deployments: read | Read whether your hosting's build succeeded |
+
+If you connected before the workflow permission existed, the Updates page shows an **Allow on GitHub** link. Accept the new permission there once.
+
+## Lockfiles
+
+When your repository has a `package-lock.json`, `pnpm-lock.yaml`, `yarn.lock` or `bun.lock`, the plugin does not touch your live branch right away. It pushes the update to the branch `emdash-update-lockfile`, where a small GitHub Actions workflow (`.github/workflows/emdash-updater-lockfile.yml`, added by the plugin) updates the lockfile. The plugin checks that the workflow changed only the lockfile, then moves your live branch forward to that commit. Your hosting builds once, with `package.json` and the lockfile in sync, so `npm ci` keeps working.
+
+## Undo and your database
+
+**Undo update** restores `package.json` and the lockfile to the previous versions. Database changes made by the newer version stay in place. EmDash migrations only add to the schema, and older versions keep working with a newer database. On Cloudflare with test versions, undo can also restore the D1 database to the moment before the update (D1 Time Travel, up to 7 days on the Free plan).
+
+Download the backup offered before each update if you want a copy you control.
+
+## Hosting
+
+| Hosting | Mode |
+| --- | --- |
+| Cloudflare Workers Builds with D1 | Test version first, then apply |
+| Render, Vercel, Netlify, Coolify | Straight to live |
+| Docker on your own server | Straight to live, when a GitHub push triggers your deploy (for example a GitHub Actions workflow that rebuilds the container) |
+
+The plugin reads the build result from GitHub check runs, commit statuses or deployments. If your hosting reports none, the plugin shows the update as waiting and gives you the way back after 15 minutes.
+
+## License
+
+GPL-3.0-or-later. See [LICENSE](LICENSE).

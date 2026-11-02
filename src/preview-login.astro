@@ -1,0 +1,42 @@
+---
+import { LOGIN_SECRET_KEY, verifyLogin } from "./preview-login.js";
+
+export const prerender = false;
+declare const __UPDATER_PREVIEW_BUILD__: boolean;
+
+Astro.response.headers.set("Cache-Control", "no-store");
+Astro.response.headers.set("Referrer-Policy", "no-referrer");
+const fail = (status: number, message: string) => new Response(message, { status, headers: { "Cache-Control": "no-store" } });
+
+if (!__UPDATER_PREVIEW_BUILD__) return fail(404, "Not found");
+const db = Astro.locals.emdash?.db;
+const session = Astro.session;
+if (!db || !session) return fail(500, "The test version is not ready yet. Try again in a minute.");
+
+const row = await db
+	.selectFrom("options")
+	.select("value")
+	.where("name", "=", `plugin:emdash-updater:${LOGIN_SECRET_KEY}`)
+	.executeTakeFirst();
+const secret = row ? (JSON.parse(row.value) as string) : null;
+const login = secret ? await verifyLogin(secret, Astro.url.searchParams.get("token") ?? "") : null;
+if (!login) return fail(403, "This sign-in link is invalid or expired. Open the test version again from your live site's admin.");
+
+const used = await db
+	.insertInto("options")
+	.values({ name: `plugin:emdash-updater:usedLogin:${login.nonce}`, value: "true" })
+	.onConflict((oc) => oc.column("name").doNothing())
+	.executeTakeFirst();
+if (!used.numInsertedOrUpdatedRows) return fail(403, "This sign-in link was already used. Open the test version again from your live site's admin.");
+
+const user = await db
+	.selectFrom("users")
+	.select(["id", "disabled"])
+	.where("id", "=", login.userId)
+	.executeTakeFirst();
+if (!user || user.disabled) return fail(403, "Your account does not exist in the test version.");
+
+await session.regenerate();
+session.set("user", { id: user.id });
+return Astro.redirect("/_emdash/admin/", 303);
+---

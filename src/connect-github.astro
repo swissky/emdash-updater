@@ -1,0 +1,28 @@
+---
+export const prerender = false;
+import { getPublicOrigin } from "emdash/api/route-utils";
+
+const origin = Astro.request.headers.get("origin");
+const sameSite = origin === Astro.url.origin || origin === getPublicOrigin(Astro.url, Astro.locals.emdash?.config);
+if (Astro.request.method !== "POST" || !sameSite) return new Response("Invalid request", { status: 403 });
+const body = await Astro.request.text();
+if (body.length > 16_384) return new Response("Request too large", { status: 413 });
+const fields = new URLSearchParams(body);
+const action = fields.get("action") ?? "";
+const manifest = fields.get("manifest") ?? "";
+if (!/^https:\/\/github\.com\/(organizations\/[A-Za-z0-9-]{1,39}\/)?settings\/apps\/new\?state=[a-f0-9-]{36}$/.test(action) || !manifest) return new Response("Invalid request", { status: 400 });
+Astro.response.headers.set("Cache-Control", "no-store");
+Astro.response.headers.set("Referrer-Policy", "no-referrer");
+Astro.response.headers.set("Content-Security-Policy", "default-src 'none'; script-src 'unsafe-inline'; form-action https://github.com; frame-ancestors 'none'; base-uri 'none'");
+---
+<html lang="en">
+	<head><meta charset="utf-8" /><title>Connecting to GitHub</title></head>
+	<body>
+		<form id="github-manifest" method="post" action={action}>
+			<input type="hidden" name="manifest" value={manifest} />
+			<button type="submit">Continue to GitHub</button>
+		</form>
+		<p>Redirecting to GitHub…</p>
+		<script is:inline>document.getElementById("github-manifest").submit();</script>
+	</body>
+</html>

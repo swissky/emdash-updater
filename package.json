@@ -1,0 +1,68 @@
+{
+	"name": "emdash-updater",
+	"version": "1.0.0",
+	"description": "Update EmDash from the admin with one click: commits the new versions to GitHub, waits for your hosting to deploy, and can undo.",
+	"license": "GPL-3.0-or-later",
+	"author": "Kevin Kyburz (https://github.com/swissky)",
+	"homepage": "https://github.com/swissky/emdash-updater#readme",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/swissky/emdash-updater.git"
+	},
+	"bugs": "https://github.com/swissky/emdash-updater/issues",
+	"keywords": [
+		"emdash",
+		"emdash-plugin",
+		"astro",
+		"cms",
+		"updater"
+	],
+	"type": "module",
+	"engines": {
+		"node": ">=22.13.0"
+	},
+	"files": [
+		"src",
+		"tools",
+		"LICENSE",
+		"README.md"
+	],
+	"exports": {
+		".": "./src/index.ts",
+		"./admin": "./src/admin.tsx",
+		"./astro": "./src/astro.ts",
+		"./worker": "./src/worker.ts"
+	},
+	"scripts": {
+		"test": "node test/admin-render.test.mjs && node test/status.test.mjs && node --experimental-strip-types test/refresh.test.ts && node --experimental-strip-types test/versions.test.ts && node --experimental-strip-types test/preview-login.test.ts && node --experimental-transform-types test/github.test.ts && node --experimental-strip-types --test test/astro.test.mjs test/preview-sql.test.mjs test/cleanup-rollback.test.mjs"
+	},
+	"peerDependencies": {
+		"@cloudflare/kumo": "^2.6.0",
+		"@emdash-cms/cloudflare": ">=1.3.0",
+		"@lingui/core": "^5.9.0",
+		"@lingui/react": "^5.9.0",
+		"astro": ">=6",
+		"emdash": ">=1.3.0",
+		"react": ">=19",
+		"wrangler": ">=4.125.0"
+	},
+	"peerDependenciesMeta": {
+		"@emdash-cms/cloudflare": {
+			"optional": true
+		},
+		"wrangler": {
+			"optional": true
+		}
+	},
+	"devDependencies": {
+		"@cloudflare/kumo": "2.6.0",
+		"@lingui/core": "^5.9.5",
+		"@lingui/react": "^5.9.5",
+		"astro": "^7.3.2",
+		"emdash": "^1.4.0",
+		"esbuild": "^0.28.2",
+		"react": "19.2.4",
+		"react-dom": "19.2.4",
+		"wrangler": "^4.125.0"
+	}
+}
