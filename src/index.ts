@@ -28,7 +28,7 @@ const previewBuild = typeof __UPDATER_PREVIEW_BUILD__ !== "undefined" && __UPDAT
 const previews = typeof __UPDATER_PREVIEWS__ === "undefined" || __UPDATER_PREVIEWS__;
 
 const ID = "emdash-updater";
-const VERSION = "1.1.0";
+const VERSION = "1.1.1";
 const ALLOWED_HOSTS = ["api.github.com", "registry.npmjs.org"];
 const STATE_TTL_MS = 10 * 60 * 1000;
 const ADMIN_PAGE = `/_emdash/admin/plugins/${ID}/`;
