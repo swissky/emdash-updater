@@ -116,12 +116,12 @@ try {
 		if (path.startsWith("/contents/")) {
 			const file = decodeURIComponent(path.slice("/contents/".length));
 			const ref = u.searchParams.get("ref");
-			const content =
-				ref === BASE || ref === "main"
-					? file === "package.json"
-						? pkg
-						: github.files[file]
-					: null;
+			const atBase = () => (file === "package.json" ? pkg : github.files[file]);
+			let content = ref === BASE || ref === "main" ? atBase() : null;
+			// Update commits: walk the parents until a commit wrote the file.
+			for (let c = github.commits.get(ref); c && content === null; c = github.commits.get(c.parent)) {
+				content = c.tree.find((f) => f.path === file)?.content ?? (c.parent === BASE ? atBase() : null);
+			}
 			return content
 				? json({
 						sha: blobSha(content),
@@ -298,11 +298,23 @@ try {
 		before: new Date().toISOString(),
 	});
 	revisions.set("lastUpdate", String(++rev));
+	const later = "9".repeat(40);
+	github.commits.set(later, {
+		parent: CANDIDATE,
+		tree: [{ path: "package.json", content: pkg.replace("1.3.1", "1.5.0") }],
+	});
+	github.main = later;
+	await assert.rejects(
+		plugin.routes["update/undo"].handler(ctx({ id: "11111111-1111-4111-8111-111111111111" })),
+		/dependencies changed/,
+		"Undo refuses when a later commit changed the dependencies",
+	);
+	github.commits.set(later, { parent: CANDIDATE, tree: [{ path: "src/pages/index.astro", content: "x" }] });
 	await plugin.routes["update/undo"].handler(
 		ctx({ id: "11111111-1111-4111-8111-111111111111", withDatabase: true }),
 	);
 	const undo = github.commits.get(github.main);
-	assert.equal(undo.parent, CANDIDATE, "Undo is a new commit on top, history is kept");
+	assert.equal(undo.parent, later, "Undo works on top of later commits that kept the dependencies");
 	assert.match(undo.tree.find((f) => f.path === "package.json").content, /"emdash": "1.3.1"/);
 	assert.match(undo.tree.find((f) => f.path === ".emdash-rollback.json").content, /"before"/);
 	assert.ok(kv.get("lastUpdate").undone);

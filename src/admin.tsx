@@ -51,7 +51,7 @@ function messageOf(error: unknown, fallback: string, i18n: I18n): string {
 		return i18n._({
 			id: "updater.signedOut",
 			message:
-				"You were signed out, probably because your hosting restarted the site while publishing. Sign in again and open this page: the update status is kept.",
+				"You were signed out, probably because your hosting restarted the site while publishing. Opening the sign-in page: the update status is kept.",
 		});
 	return error instanceof Error && error.message ? error.message : fallback;
 }
@@ -62,7 +62,12 @@ async function post<T>(route: string, body: unknown = {}): Promise<T> {
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify(body),
 	});
-	if (response.status === 401) throw new SignedOutError();
+	if (response.status === 401) {
+		// A redeploy can end the session; the login brings the user back here.
+		const back = encodeURIComponent(window.location.pathname + window.location.search);
+		window.location.assign(`/_emdash/admin/login?redirect=${back}`);
+		throw new SignedOutError();
+	}
 	const data = await parseApiResponse<T>(response, `Request to ${route} failed`);
 	if (data && typeof data === "object" && "ok" in data && data.ok === false) {
 		throw new Error(

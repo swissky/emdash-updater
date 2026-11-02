@@ -85,6 +85,8 @@ When your repository has a `package-lock.json`, `pnpm-lock.yaml`, `yarn.lock` or
 
 **Undo update** restores `package.json` and the lockfile to the previous versions. Database changes made by the newer version stay in place. EmDash migrations only add to the schema, and older versions keep working with a newer database. On Cloudflare with test versions, undo can also restore the D1 database to the moment before the update (D1 Time Travel, up to 7 days on the Free plan).
 
+Undo still works when `main` got more commits after the update, as long as they left `package.json` and the lockfile as the update wrote them.
+
 Download the backup offered before each update if you want a copy you control.
 
 ## Hosting
@@ -96,6 +98,84 @@ Download the backup offered before each update if you want a copy you control.
 | Docker on your own server | Straight to live, when a GitHub push triggers your deploy (for example a GitHub Actions workflow that rebuilds the container) |
 
 The plugin reads the build result from GitHub check runs, commit statuses or deployments. If your hosting reports none, the plugin shows the update as waiting and gives you the way back after 15 minutes.
+
+### Docker on your own server
+
+The plugin never connects to your server. It commits to GitHub, and your deploy picks up the push. A small, safe setup:
+
+1. Run the site with Docker Compose and keep the database and the sessions on a volume:
+
+   ```yaml
+   # compose.yaml
+   services:
+     site:
+       build: .
+       restart: unless-stopped
+       env_file: .env
+       ports:
+         - "127.0.0.1:4321:4321"
+       volumes:
+         - data:/app/data
+   volumes:
+     data:
+   ```
+
+   ```js
+   // astro.config.mjs
+   import { defineConfig, sessionDrivers } from "astro/config";
+
+   export default defineConfig({
+   	session: { driver: sessionDrivers.fsLite({ base: "./data/sessions" }) },
+   	// ...
+   });
+   ```
+
+   Without a persistent session store, every rebuild of the container signs everyone out. The Updates page then sends you to the sign-in and back; the update status is kept. With several containers, use a shared store such as Redis instead.
+
+2. Put a deploy script on the server that pulls `main` and rebuilds:
+
+   ```sh
+   #!/bin/sh
+   # deploy/deploy.sh
+   set -eu
+   cd "$(dirname "$0")/.."
+   git fetch --quiet origin main
+   git reset --quiet --hard origin/main
+   docker compose up -d --build --remove-orphans
+   ```
+
+3. Create an SSH key that can run only this script. Add its public key to `~/.ssh/authorized_keys` on the server:
+
+   ```
+   command="/path/to/site/deploy/deploy.sh",no-pty,no-port-forwarding,no-agent-forwarding,no-X11-forwarding ssh-ed25519 AAAA... deploy
+   ```
+
+4. Add a workflow that runs the script on every push to `main`. Store the private key, `user@host` and the output of `ssh-keyscan <host>` as the secrets `DEPLOY_SSH_KEY`, `DEPLOY_HOST` and `DEPLOY_KNOWN_HOSTS`:
+
+   ```yaml
+   # .github/workflows/deploy.yml
+   name: Deploy
+   on:
+     push:
+       branches: [main]
+   concurrency: deploy
+   jobs:
+     deploy:
+       runs-on: ubuntu-latest
+       steps:
+         - env:
+             SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+             SSH_HOST: ${{ secrets.DEPLOY_HOST }}
+             SSH_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+           run: |
+             mkdir -p ~/.ssh
+             echo "$SSH_KEY" > ~/.ssh/id_ed25519
+             echo "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+             chmod 600 ~/.ssh/id_ed25519
+             ssh "$SSH_HOST" deploy
+   ```
+
+The workflow run is reported to GitHub as a check, so the Updates page shows when the new version is live.
 
 ## License
 

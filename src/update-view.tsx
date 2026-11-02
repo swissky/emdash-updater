@@ -353,7 +353,7 @@ export function UpdateView({ status, busy, onStart, onOpen, onApply, onDiscard }
 						{confirm === "start"
 							? t(
 									"updater.startDirectHelp",
-									"Your hosting builds and publishes the new version, usually within a few minutes. Your content stays as it is. Download a backup first: it contains your content, collections, menus, media details and settings, and can be imported again under Settings, Transfer. Media files and user accounts are not included.",
+									"Your hosting builds and publishes the new version, usually within a few minutes. Your content stays as it is. Download a backup first: it contains your content, collections, menus, media details and settings, and can be imported again under Settings, Transfer. Media files and user accounts are not included. Depending on your hosting, you may have to sign in again once the new version is live.",
 								)
 							: confirm === "apply"
 							? t(

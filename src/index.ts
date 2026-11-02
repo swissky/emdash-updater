@@ -28,7 +28,7 @@ const previewBuild = typeof __UPDATER_PREVIEW_BUILD__ !== "undefined" && __UPDAT
 const previews = typeof __UPDATER_PREVIEWS__ === "undefined" || __UPDATER_PREVIEWS__;
 
 const ID = "emdash-updater";
-const VERSION = "1.0.0";
+const VERSION = "1.1.0";
 const ALLOWED_HOSTS = ["api.github.com", "registry.npmjs.org"];
 const STATE_TTL_MS = 10 * 60 * 1000;
 const ADMIN_PAGE = `/_emdash/admin/plugins/${ID}/`;
@@ -307,6 +307,15 @@ async function previousFiles(client: RepoClient, ref: string, lockfile?: string)
 			return { path, sha: blob };
 		}),
 	);
+}
+
+/** Later commits are fine as long as they left package.json and the lockfile as the update wrote them. */
+async function sameDependencies(client: RepoClient, last: LastUpdate, head: string) {
+	const paths = last.lockfile ? ["package.json", last.lockfile] : ["package.json"];
+	const blobs = await Promise.all(
+		paths.flatMap((path) => [client.fileSha(path, last.appliedSha!), client.fileSha(path, head)]),
+	);
+	return paths.every((_, i) => blobs[2 * i] !== null && blobs[2 * i] === blobs[2 * i + 1]);
 }
 
 async function findLockfile(client: RepoClient, ref: string): Promise<string | undefined> {
@@ -811,9 +820,9 @@ export function createPlugin() {
 						);
 					const client = await clientFor(ctx, last.repo);
 					const head = await client.headSha();
-					if (head !== last.appliedSha)
+					if (head !== last.appliedSha && !(await sameDependencies(client, last, head)))
 						throw PluginRouteError.badRequest(
-							"Your site's code changed after the update, so it cannot be undone automatically.",
+							"Your site's dependencies changed after the update, so it cannot be undone automatically.",
 						);
 					const files = await previousFiles(client, last.baseSha, last.lockfile);
 					if (restore)
