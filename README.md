@@ -54,6 +54,16 @@ export default defineConfig({
 
 Keep `updater()` before `emdash()`. Commit, push, and let your hosting deploy.
 
+### Only let some people update
+
+By default every Admin can run updates. On a client site where you look after updates yourself, list the people who may:
+
+```js
+plugins: [updaterPlugin({ allowedUsers: ["you@agency.com"] })],
+```
+
+Other Admins still see the installed and available versions, with a note that you manage updates. Every update action refuses them with a 403. Leave the plugin out of `astro.config.mjs` if the Updates page should not appear at all.
+
 ### Cloudflare Workers: test versions
 
 Test versions need Cloudflare Workers Builds connected to your GitHub repository, with builds for non-production branches turned on. Point `main` in `wrangler.jsonc` at a worker file that re-exports the plugin's worker:

@@ -522,6 +522,26 @@ try {
 		],
 		"Going back restores package.json and the lockfile",
 	);
+
+	const { createPlugin: createRestricted, updaterPlugin } = await import(pathToFileURL(outfile).href);
+	assert.throws(() => updaterPlugin({ allowedUsers: ["dev"] }), /email addresses/);
+	const restricted = createRestricted({ allowedUsers: ["Dev@Agency.ch"] });
+	const as = (email, input = {}) => ({ ...ctx(input), user: { id: email, email } });
+	const client = await restricted.routes.status.handler(as("client@shop.ch"));
+	assert.equal(client.restricted, true, "Other Admins get the restricted status");
+	assert.equal(client.repo, undefined, "The restricted status leaks no repository details");
+	assert.ok(client.packages.length, "Other Admins still see the versions");
+	await assert.rejects(
+		restricted.routes["update/undo"].handler(as("client@shop.ch", { id: "x" })),
+		(error) => error.status === 403 && /managed by your developer/.test(error.message),
+		"Other Admins cannot run update actions",
+	);
+	assert.notEqual((await restricted.routes.status.handler(as("dev@agency.ch"))).restricted, true);
+	assert.equal(
+		(await createRestricted().routes.status.handler(as("client@shop.ch"))).restricted,
+		undefined,
+		"Without allowedUsers every Admin may update",
+	);
 	console.log("status flow ok");
 } finally {
 	await rm(directory, { recursive: true, force: true });

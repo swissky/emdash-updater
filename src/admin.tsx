@@ -20,6 +20,7 @@ const CONNECTION_STATE = "emdash-updater:connection-state";
 
 interface Status {
 	connected: boolean;
+	restricted?: boolean;
 	preview?: boolean;
 	installUrl?: string | null;
 	choices?: Repo[];
@@ -462,7 +463,17 @@ function UpdatesPage() {
 				)}
 			</section>
 
-			{status && (
+			{status?.restricted && (
+				<p className="rounded-lg border border-kumo-line p-4 text-sm text-kumo-subtle">
+					{i18n._({
+						id: "updater.restricted",
+						message:
+							"Updates on this site are managed by your developer. You can see the installed and available versions here.",
+					})}
+				</p>
+			)}
+
+			{status && !status.restricted && (
 				<>
 					<section
 						className="space-y-4 rounded-lg border border-kumo-line p-4"

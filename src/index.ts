@@ -28,7 +28,7 @@ const previewBuild = typeof __UPDATER_PREVIEW_BUILD__ !== "undefined" && __UPDAT
 const previews = typeof __UPDATER_PREVIEWS__ === "undefined" || __UPDATER_PREVIEWS__;
 
 const ID = "emdash-updater";
-const VERSION = "1.1.1";
+const VERSION = "1.2.0";
 const ALLOWED_HOSTS = ["api.github.com", "registry.npmjs.org"];
 const STATE_TTL_MS = 10 * 60 * 1000;
 const ADMIN_PAGE = `/_emdash/admin/plugins/${ID}/`;
@@ -42,8 +42,20 @@ const settingsSchema = {
 };
 const pages = [{ path: "/", label: "Updates", icon: "arrow-clockwise" }];
 
-export function updaterPlugin(): PluginDescriptor {
+export interface UpdaterOptions {
+	/** Email addresses that may run updates. Other Admins only see the installed and available versions. */
+	allowedUsers?: string[];
+}
+
+export function updaterPlugin(options: UpdaterOptions = {}): PluginDescriptor<UpdaterOptions> {
+	if (
+		options.allowedUsers !== undefined &&
+		(!Array.isArray(options.allowedUsers) ||
+			!options.allowedUsers.every((email) => typeof email === "string" && email.includes("@")))
+	)
+		throw new Error("emdash-updater: allowedUsers must be a list of email addresses.");
 	return {
+		options,
 		id: ID,
 		version: VERSION,
 		format: "native",
@@ -473,7 +485,10 @@ async function revertDirect(ctx: Ctx, update: PreviewUpdate) {
 	);
 }
 
-export function createPlugin() {
+export function createPlugin(options: UpdaterOptions = {}) {
+	const allowed = options.allowedUsers?.map((email) => email.trim().toLowerCase());
+	const mayUpdate = (ctx: Ctx) =>
+		!allowed || allowed.includes(ctx.user?.email?.trim().toLowerCase() ?? "");
 	const plugin = definePlugin({
 		id: ID,
 		version: VERSION,
@@ -484,6 +499,8 @@ export function createPlugin() {
 			status: {
 				methods: ["POST"],
 				handler: async (ctx) => {
+					if (!mayUpdate(ctx))
+						return { ...(await versionStatus(ctx)), connected: false, restricted: true };
 					const appSlug = await ctx.settings.get<string>("appSlug");
 					const creds = await credentials(ctx);
 					const repo = await ctx.kv.get<Repo>("selectedRepo");
@@ -871,6 +888,8 @@ export function createPlugin() {
 		const handler = route.handler;
 		route.handler = async (ctx) => {
 			try {
+				if (!route.public && name !== "status" && !mayUpdate(ctx))
+					throw PluginRouteError.forbidden("Updates on this site are managed by your developer.");
 				if (previewBuild && name !== "status")
 					throw PluginRouteError.badRequest(
 						"This is the test version of your site. Apply or discard the update on your live site.",
